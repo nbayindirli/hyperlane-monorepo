@@ -1,4 +1,3 @@
-import { input } from '@inquirer/prompts';
 import { ethers } from 'ethers';
 
 import {
@@ -14,7 +13,6 @@ import { objFilter, objMap, objMerge } from '@hyperlane-xyz/utils';
 
 import { runDeploymentArtifactStep } from './config/artifacts.js';
 import { readChainConfigsIfExists } from './config/chain.js';
-import { keyToSigner } from './utils/keys.js';
 
 export const sdkContractAddressesMap: HyperlaneContractsMap<any> = {
   ...hyperlaneEnvironments.testnet,
@@ -45,7 +43,7 @@ export function getMergedContractAddresses(
   ) as HyperlaneContractsMap<any>;
 }
 
-interface ContextSettings {
+export interface ContextSettings {
   chainConfigPath?: string;
   coreConfig?: {
     coreArtifactsPath?: string;
@@ -56,6 +54,7 @@ interface ContextSettings {
     promptMessage?: string;
   };
   skipConfirmation?: boolean;
+  dryRun?: boolean;
 }
 
 interface CommandContextBase {
@@ -72,27 +71,17 @@ type CommandContext<P extends ContextSettings> = CommandContextBase &
     ? { coreArtifacts: HyperlaneContractsMap<any> }
     : { coreArtifacts: undefined });
 
+/**
+ * Retrieves context for the user-selected command
+ * @returns context for the current command
+ */
 export async function getContext<P extends ContextSettings>({
   chainConfigPath,
   coreConfig,
-  keyConfig,
   skipConfirmation,
+  dryRun,
 }: P): Promise<CommandContext<P>> {
   const customChains = readChainConfigsIfExists(chainConfigPath);
-
-  let signer = undefined;
-  if (keyConfig) {
-    let key: string;
-    if (keyConfig.key) key = keyConfig.key;
-    else if (skipConfirmation) throw new Error('No key provided');
-    else
-      key = await input({
-        message:
-          keyConfig.promptMessage ||
-          'Please enter a private key or use the HYP_KEY environment variable',
-      });
-    signer = keyToSigner(key);
-  }
 
   let coreArtifacts = undefined;
   if (coreConfig) {
@@ -103,25 +92,25 @@ export async function getContext<P extends ContextSettings>({
           coreConfig.promptMessage ||
           'Do you want to use some core deployment address artifacts? This is required for PI chains (non-core chains).',
         skipConfirmation,
+        dryRun,
       })) || {};
   }
 
-  const multiProvider = getMultiProvider(customChains, signer);
+  const multiProvider = getMultiProvider(customChains);
 
   return {
     customChains,
-    signer,
     multiProvider,
     coreArtifacts,
   } as CommandContext<P>;
 }
 
-export function getMultiProvider(
-  customChains: ChainMap<ChainMetadata>,
-  signer?: ethers.Signer,
-) {
+/**
+ * Retrieves a new MultiProvider based on all known chain metadata & custom user chains
+ * @param customChains Custom chains specified by the user
+ * @returns a new MultiProvider
+ */
+export function getMultiProvider(customChains: ChainMap<ChainMetadata>) {
   const chainConfigs = { ...chainMetadata, ...customChains };
-  const mp = new MultiProvider(chainConfigs);
-  if (signer) mp.setSharedSigner(signer);
-  return mp;
+  return new MultiProvider(chainConfigs);
 }

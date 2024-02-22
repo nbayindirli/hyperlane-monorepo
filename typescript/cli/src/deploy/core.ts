@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 
 import {
   ChainMap,
+  ChainMetadata,
   ChainName,
   CoreConfig,
   DeployedIsm,
@@ -47,19 +48,28 @@ import {
   getMergedContractAddresses,
   sdkContractAddressesMap,
 } from '../context.js';
-import { runMultiChainSelectionStep } from '../utils/chains.js';
 import {
+  runMultiChainSelectionStep,
+  runSingleChainSelectionStep,
+} from '../utils/chains.js';
+import {
+  ArtifactsFile,
   prepNewArtifactsFiles,
   runFileSelectionStep,
   writeJson,
 } from '../utils/files.js';
+import { getSigner } from '../utils/keys.js';
 
+import { prepareMultiProviderForDryRun } from './dry-run.js';
 import {
   isISMConfig,
   isZODISMConfig,
   runPreflightChecksForChains,
 } from './utils.js';
 
+/**
+ * Executes the core deploy command.
+ */
 export async function runCoreDeploy({
   key,
   chainConfigPath,
@@ -69,6 +79,7 @@ export async function runCoreDeploy({
   artifactsPath,
   outPath,
   skipConfirmation,
+  dryRun,
 }: {
   key: string;
   chainConfigPath: string;
@@ -78,21 +89,30 @@ export async function runCoreDeploy({
   artifactsPath?: string;
   outPath: string;
   skipConfirmation: boolean;
+  dryRun: boolean;
 }) {
-  const { customChains, multiProvider, signer } = await getContext({
+  const { customChains, multiProvider } = await getContext({
     chainConfigPath,
     keyConfig: { key },
     skipConfirmation,
+    dryRun,
   });
 
   if (!chains?.length) {
     if (skipConfirmation) throw new Error('No chains provided');
-    chains = await runMultiChainSelectionStep(
-      customChains,
-      'Select chains to connect',
-      true,
-    );
+    chains = await retrieveChainSelection(customChains, dryRun);
   }
+
+  const signer = (await getSigner({
+    keyConfig: { key },
+    skipConfirmation,
+    dryRun,
+  })) as ethers.Signer;
+
+  if (signer) multiProvider.setSharedSigner(signer);
+
+  if (dryRun) await prepareMultiProviderForDryRun(multiProvider, chains);
+
   const artifacts = await runArtifactStep(
     chains,
     skipConfirmation,
@@ -117,6 +137,7 @@ export async function runCoreDeploy({
     hooksConfig,
     outPath,
     skipConfirmation,
+    dryRun,
   };
 
   await runDeployPlanStep(deploymentParams);
@@ -127,10 +148,35 @@ export async function runCoreDeploy({
   await executeDeploy(deploymentParams);
 }
 
+/**
+ * Retrieves a user's chain selection for the current command
+ * @param customChains user-specified custom chains
+ * @param dryRun whether or not the command is being dry-run
+ * @returns an array of the selected chains
+ */
+async function retrieveChainSelection(
+  customChains: ChainMap<ChainMetadata>,
+  dryRun: boolean,
+): Promise<string[]> {
+  return dryRun
+    ? [
+        await runSingleChainSelectionStep(
+          customChains,
+          'Select chain to dry-run against:',
+        ),
+      ]
+    : await runMultiChainSelectionStep(
+        customChains,
+        'Select chains to connect:',
+        true,
+      );
+}
+
 function runArtifactStep(
   selectedChains: ChainName[],
   skipConfirmation: boolean,
   artifactsPath?: string,
+  dryRun?: boolean,
 ) {
   logBlue(
     '\nDeployments can be totally new or can use some existing contract addresses.',
@@ -139,6 +185,7 @@ function runArtifactStep(
     artifactsPath,
     selectedChains,
     skipConfirmation,
+    dryRun,
   });
 }
 
@@ -236,6 +283,7 @@ interface DeployParams {
   hooksConfig?: ChainMap<HooksConfig>;
   outPath: string;
   skipConfirmation: boolean;
+  dryRun: boolean;
 }
 
 async function runDeployPlanStep({
@@ -272,13 +320,14 @@ async function executeDeploy({
   ismConfigs = {},
   multisigConfigs = {},
   hooksConfig = {},
+  dryRun,
 }: DeployParams) {
   logBlue('All systems ready, captain! Beginning deployment...');
 
-  const [contractsFilePath, agentFilePath] = prepNewArtifactsFiles(outPath, [
-    { filename: 'core-deployment', description: 'Contract addresses' },
-    { filename: 'agent-config', description: 'Agent configs' },
-  ]);
+  const [contractsFilePath, agentFilePath] = prepNewArtifactsFiles(
+    outPath,
+    getArtifactsFiles(dryRun),
+  );
 
   const owner = await signer.getAddress();
   const mergedContractAddrs = getMergedContractAddresses(artifacts, chains);
@@ -348,6 +397,24 @@ async function executeDeploy({
   logBlue('Deployment is complete!');
   logBlue(`Contract address artifacts are in ${contractsFilePath}`);
   logBlue(`Agent configs are in ${agentFilePath}`);
+}
+
+/**
+ * Retrieves artifacts file metadata for the current command.
+ * @param dryRun whether or not the current command is being dry-run
+ * @returns the artifacts files
+ */
+function getArtifactsFiles(dryRun: boolean): Array<ArtifactsFile> {
+  const coreDeploymentFile = {
+    filename: dryRun ? 'dry-run_core-deployment' : 'core-deployment',
+    description: 'Contract addresses',
+  };
+  const agentConfigFile = {
+    filename: dryRun ? 'dry-run_agent-config' : 'agent-config',
+    description: 'Agent configs',
+  };
+
+  return [coreDeploymentFile, agentConfigFile];
 }
 
 function buildIsmConfig(
