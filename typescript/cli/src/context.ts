@@ -13,6 +13,7 @@ import { objFilter, objMap, objMerge } from '@hyperlane-xyz/utils';
 
 import { runDeploymentArtifactStep } from './config/artifacts.js';
 import { readChainConfigsIfExists } from './config/chain.js';
+import { getSigner } from './utils/keys.js';
 
 export const sdkContractAddressesMap: HyperlaneContractsMap<any> = {
   ...hyperlaneEnvironments.testnet,
@@ -78,10 +79,18 @@ type CommandContext<P extends ContextSettings> = CommandContextBase &
 export async function getContext<P extends ContextSettings>({
   chainConfigPath,
   coreConfig,
+  keyConfig,
   skipConfirmation,
   dryRun,
 }: P): Promise<CommandContext<P>> {
   const customChains = readChainConfigsIfExists(chainConfigPath);
+
+  let signer;
+  if (!dryRun)
+    signer = await getSigner({
+      keyConfig,
+      skipConfirmation,
+    });
 
   let coreArtifacts = undefined;
   if (coreConfig) {
@@ -96,10 +105,11 @@ export async function getContext<P extends ContextSettings>({
       })) || {};
   }
 
-  const multiProvider = getMultiProvider(customChains);
+  const multiProvider = getMultiProvider(customChains, signer);
 
   return {
     customChains,
+    signer,
     multiProvider,
     coreArtifacts,
   } as CommandContext<P>;
@@ -110,7 +120,12 @@ export async function getContext<P extends ContextSettings>({
  * @param customChains Custom chains specified by the user
  * @returns a new MultiProvider
  */
-export function getMultiProvider(customChains: ChainMap<ChainMetadata>) {
+export function getMultiProvider(
+  customChains: ChainMap<ChainMetadata>,
+  signer?: ethers.Signer,
+) {
   const chainConfigs = { ...chainMetadata, ...customChains };
-  return new MultiProvider(chainConfigs);
+  const multiProvider = new MultiProvider(chainConfigs);
+  if (signer) multiProvider.setSharedSigner(signer);
+  return multiProvider;
 }

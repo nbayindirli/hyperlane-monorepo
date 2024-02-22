@@ -49,12 +49,12 @@ const agentCommand: CommandModule = {
   command: 'kurtosis-agents',
   describe: 'Deploy Hyperlane agents with Kurtosis',
   builder: (yargs) =>
-    yargs.options({
+    yargs.options<AgentCommandOptions>({
       origin: originCommandOption,
       targets: agentTargetsCommandOption,
       chains: chainsCommandOption,
       config: agentConfigCommandOption,
-    } as AgentCommandOptions),
+    }),
   handler: async (argv: any) => {
     logGray('Hyperlane Agent Deployment with Kurtosis');
     logGray('----------------------------------------');
@@ -79,7 +79,7 @@ const coreCommand: CommandModule = {
   command: 'core',
   describe: 'Deploy core Hyperlane contracts',
   builder: (yargs) =>
-    yargs.options({
+    yargs.options<CoreCommandOptions>({
       targets: coreTargetsCommandOption,
       chains: chainsCommandOption,
       artifacts: coreArtifactsOption,
@@ -89,7 +89,7 @@ const coreCommand: CommandModule = {
       key: keyCommandOption,
       yes: skipConfirmationOption,
       'dry-run': dryRunOption,
-    } as CoreCommandOptions),
+    }),
   handler: async (argv: any) => {
     const key: string = argv.key || ENV.HYP_KEY;
     const chainConfigPath: string = argv.chains;
@@ -138,14 +138,14 @@ const warpCommand: CommandModule = {
   command: 'warp',
   describe: 'Deploy Warp Route contracts',
   builder: (yargs) =>
-    yargs.options({
+    yargs.options<WarpCommandOptions>({
       config: warpConfigCommandOption,
       core: coreArtifactsOption,
       chains: chainsCommandOption,
       out: outDirCommandOption,
       key: keyCommandOption,
       yes: skipConfirmationOption,
-    } as WarpCommandOptions),
+    }),
   handler: async (argv: any) => {
     const key: string = argv.key || ENV.HYP_KEY;
     const chainConfigPath: string = argv.chains;

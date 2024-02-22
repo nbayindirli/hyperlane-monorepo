@@ -8,6 +8,8 @@ import { ContextSettings } from '../context.js';
 
 import { impersonateAccount } from './fork.js';
 
+const ETHEREUM_ADDRESS_LENGTH = 42;
+
 /**
  * Retrieves a signer for the current command-context.
  * @returns the context-specific signer
@@ -19,18 +21,18 @@ export async function getSigner<P extends ContextSettings>({
 }: P): Promise<providers.JsonRpcSigner | ethers.Wallet | undefined> {
   if (!keyConfig) return undefined;
 
-  const keyType = dryRun ? 'public' : 'private';
+  const keyType = dryRun ? 'address' : 'private key';
   let key: string;
   if (keyConfig.key) key = keyConfig.key;
-  else if (skipConfirmation) throw new Error(`No ${keyType} key provided`);
+  else if (skipConfirmation) throw new Error(`No ${keyType} provided`);
   else
     key = await input({
       message:
         keyConfig.promptMessage ||
-        `Please enter a ${keyType} key or use the HYP_KEY environment variable.`,
+        `Please enter ${keyType} or use the HYP_KEY environment variable.`,
     });
 
-  return dryRun ? await publicKeyToSigner(key) : privateKeyToSigner(key);
+  return dryRun ? await addressToSigner(key) : privateKeyToSigner(key);
 }
 
 /**
@@ -43,19 +45,23 @@ export function assertSigner(signer: ethers.Signer) {
 }
 
 /**
- * Generates a signer from a public key.
- * @param key a public key
- * @returns a signer for the public key
+ * Generates a signer from an address.
+ * @param address an EOA address
+ * @returns a signer for the address
  */
-async function publicKeyToSigner(
-  key: Address,
+async function addressToSigner(
+  address: Address,
 ): Promise<providers.JsonRpcSigner> {
-  if (!key) throw new Error('No public key provided');
+  if (!address) throw new Error('No address provided');
 
-  const formattedKey = key.trim().toLowerCase();
-  if (ethers.utils.isHexString(ensure0x(formattedKey)))
-    return await impersonateAccount(key);
-  else throw new Error('Invalid public key format');
+  const formattedKey = address.trim().toLowerCase();
+  if (address.length != ETHEREUM_ADDRESS_LENGTH)
+    throw new Error(
+      'Invalid address length. Please ensure you are passing an address and not a private key.',
+    );
+  else if (ethers.utils.isHexString(ensure0x(formattedKey)))
+    return await impersonateAccount(address);
+  else throw new Error('Invalid address format');
 }
 
 /**

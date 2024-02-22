@@ -60,7 +60,7 @@ import {
 } from '../utils/files.js';
 import { getSigner } from '../utils/keys.js';
 
-import { prepareMultiProviderForDryRun } from './dry-run.js';
+import { forkNetworkToMultiProvider } from './dry-run.js';
 import {
   isISMConfig,
   isZODISMConfig,
@@ -91,27 +91,35 @@ export async function runCoreDeploy({
   skipConfirmation: boolean;
   dryRun: boolean;
 }) {
-  const { customChains, multiProvider } = await getContext({
+  const context = await getContext({
     chainConfigPath,
     keyConfig: { key },
     skipConfirmation,
     dryRun,
   });
 
+  const multiProvider = context.multiProvider;
+  let signer = context.signer;
+
   if (!chains?.length) {
     if (skipConfirmation) throw new Error('No chains provided');
-    chains = await retrieveChainSelection(customChains, dryRun);
+    chains = await retrieveChainSelection(context.customChains, dryRun);
   }
 
-  const signer = (await getSigner({
-    keyConfig: { key },
-    skipConfirmation,
-    dryRun,
-  })) as ethers.Signer;
+  if (dryRun) {
+    if (chains.length != 1)
+      throw new Error('Only one chain can be present for dry-running.');
 
-  if (signer) multiProvider.setSharedSigner(signer);
+    await forkNetworkToMultiProvider(multiProvider, chains[0]);
 
-  if (dryRun) await prepareMultiProviderForDryRun(multiProvider, chains);
+    signer = (await getSigner({
+      keyConfig: { key },
+      skipConfirmation,
+      dryRun,
+    })) as ethers.Signer;
+
+    if (signer) multiProvider.setSharedSigner(signer);
+  }
 
   const artifacts = await runArtifactStep(
     chains,

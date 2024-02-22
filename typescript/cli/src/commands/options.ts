@@ -1,7 +1,6 @@
-/* TODO: Create common/options.ts, common/args.ts, agent/options.ts, etc. */
-import { ArgumentsCamelCase, Options } from 'yargs';
+import { Options } from 'yargs';
 
-type CommandOptions = {
+export type CommandOptions = {
   chains: Options;
 };
 export type AgentCommandOptions = CommandOptions & {
@@ -25,32 +24,6 @@ export type WarpCommandOptions = CommandOptions & {
   out: Options;
   key: Options;
   yes: Options;
-};
-
-interface CommandArgs extends ArgumentsCamelCase {
-  chains: string;
-}
-export interface AgentCommandArgs extends CommandArgs {
-  origin: string;
-  targets: string;
-  config: string;
-}
-export interface CoreCommandArgs extends CommandArgs {
-  targets: string;
-  artifacts: string;
-  ism: string;
-  hook: string;
-  out: string;
-  key: string;
-  yes: boolean;
-  'dry-run': boolean;
-}
-export type WarpCommandArgs = CommandArgs & {
-  config: string;
-  core: string;
-  out: string;
-  key: string;
-  yes: boolean;
 };
 
 export const coreTargetsCommandOption: Options = {
@@ -90,7 +63,7 @@ export const warpConfigCommandOption: Options = {
 export const keyCommandOption: Options = {
   type: 'string',
   description: `Default: A hex private key or seed phrase for transaction signing, or use the HYP_KEY env var.
-Dry-run: A hex public key to simulate transaction signing on a forked network, or use the HYP_KEY env var.`,
+Dry-run: An address to simulate transaction signing on a forked network, or use the HYP_KEY env var.`,
   alias: 'k',
 };
 
@@ -144,7 +117,7 @@ export const skipConfirmationOption: Options = {
 export const dryRunOption: Options = {
   type: 'boolean',
   description:
-    'Simulate deployment on forked network. Please ensure an anvil node instance is running during execution with CORS disabled (--no-cors).',
+    'Simulate deployment on forked network. Please ensure an anvil node instance is running during execution via `anvil`.',
   default: false,
   alias: 'd',
 };

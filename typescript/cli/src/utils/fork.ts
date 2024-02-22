@@ -9,14 +9,8 @@ import { ENV } from './env.js';
 const ENDPOINT_PREFIX = 'http://';
 const DEFAULT_ANVIL_ENDPOINT = 'http://127.0.0.1:8545';
 
-export enum ETH_RPC_METHODS {
-  BLOCK_NUMBER = 'eth_blockNumber',
-}
-
 export enum ANVIL_RPC_METHODS {
   RESET = 'anvil_reset',
-  SET_RPC_URL = 'anvil_setRpcUrl',
-  SET_CHAIN_ID = 'anvil_setChainId',
   IMPERSONATE_ACCOUNT = 'anvil_impersonateAccount',
   NODE_INFO = 'anvil_nodeInfo',
 }
@@ -43,10 +37,6 @@ export const setFork = async (
   const provider = getLocalProvider();
   const currentChainMetadata = multiProvider.metadata[chain];
 
-  await provider.send(ANVIL_RPC_METHODS.SET_CHAIN_ID, [
-    currentChainMetadata.chainId,
-  ]);
-
   await provider.send(ANVIL_RPC_METHODS.RESET, [
     {
       forking: {
@@ -61,8 +51,8 @@ export const setFork = async (
 };
 
 /**
- * Impersonates an EOA for a provided public-key.
- * @param account the EOAs public-key to impersonate
+ * Impersonates an EOA for a provided address.
+ * @param account the address to impersonate
  * @returns the impersonated signer
  */
 export const impersonateAccount = async (
@@ -75,7 +65,7 @@ export const impersonateAccount = async (
 };
 
 /**
- * Retrives a local provider. Defaults to DEFAULT_ANVIL_ENDPOINT.
+ * Retrieves a local provider. Defaults to DEFAULT_ANVIL_ENDPOINT.
  * @param urlOverride custom URL to overried the default endpoint
  * @returns a local JSON-RPC provider
  */
@@ -95,7 +85,7 @@ export const getLocalProvider = (
     urlOverride = undefined;
   }
 
-  return new providers.JsonRpcProvider(
-    urlOverride ?? envUrl ?? DEFAULT_ANVIL_ENDPOINT,
-  );
+  const url = urlOverride ?? envUrl ?? DEFAULT_ANVIL_ENDPOINT;
+
+  return new providers.JsonRpcProvider(url);
 };
