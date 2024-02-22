@@ -144,7 +144,7 @@ export const skipConfirmationOption: Options = {
 export const dryRunOption: Options = {
   type: 'boolean',
   description:
-    'Simulate deployment on forked network. Please ensure an anvil node instance is running during execution.',
+    'Simulate deployment on forked network. Please ensure an anvil node instance is running during execution with CORS disabled (--no-cors).',
   default: false,
   alias: 'd',
 };

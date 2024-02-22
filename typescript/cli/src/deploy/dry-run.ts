@@ -42,6 +42,6 @@ export async function verifyAnvil() {
 export function evaluateIfDryRunFailure(error: any, dryRun: boolean) {
   if (dryRun && error.message.includes('underlying network changed'))
     logYellow(
-      "⚠️ (Dry-run) The network's selected RPC provider may not support forking. Please try running with another RPC provider.",
+      '⚠️ (Dry-run) Anvil node may be out of sync due to CORS. Please disable CORS via `anvil --no-cors`.',
     );
 }
