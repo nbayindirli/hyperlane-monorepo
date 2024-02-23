@@ -1,4 +1,3 @@
-// NOTE: Rename to cli/utils/signer.ts ?
 import { input } from '@inquirer/prompts';
 import { ethers, providers } from 'ethers';
 

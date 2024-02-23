@@ -58,6 +58,7 @@ import {
   runFileSelectionStep,
   writeJson,
 } from '../utils/files.js';
+import { resetFork } from '../utils/fork.js';
 import { getSigner } from '../utils/keys.js';
 
 import { forkNetworkToMultiProvider } from './dry-run.js';
@@ -154,6 +155,8 @@ export async function runCoreDeploy({
     minGas: MINIMUM_CORE_DEPLOY_GAS,
   });
   await executeDeploy(deploymentParams);
+
+  if (dryRun) await resetFork();
 }
 
 /**
