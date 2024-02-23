@@ -3,7 +3,6 @@ import { ethers } from 'ethers';
 
 import {
   ChainMap,
-  ChainMetadata,
   ChainName,
   CoreConfig,
   DeployedIsm,
@@ -45,13 +44,11 @@ import { readMultisigConfig } from '../config/multisig.js';
 import { MINIMUM_CORE_DEPLOY_GAS } from '../consts.js';
 import {
   getContext,
+  getDryRunContext,
   getMergedContractAddresses,
   sdkContractAddressesMap,
 } from '../context.js';
-import {
-  runMultiChainSelectionStep,
-  runSingleChainSelectionStep,
-} from '../utils/chains.js';
+import { runMultiChainSelectionStep } from '../utils/chains.js';
 import {
   ArtifactsFile,
   prepNewArtifactsFiles,
@@ -59,9 +56,7 @@ import {
   writeJson,
 } from '../utils/files.js';
 import { resetFork } from '../utils/fork.js';
-import { getSigner } from '../utils/keys.js';
 
-import { forkNetworkToMultiProvider } from './dry-run.js';
 import {
   isISMConfig,
   isZODISMConfig,
@@ -92,34 +87,31 @@ export async function runCoreDeploy({
   skipConfirmation: boolean;
   dryRun: boolean;
 }) {
-  const context = await getContext({
-    chainConfigPath,
-    keyConfig: { key },
-    skipConfirmation,
-    dryRun,
-  });
+  const context = dryRun
+    ? await getDryRunContext({
+        chainConfigPath,
+        chains,
+        keyConfig: { key },
+        skipConfirmation,
+      })
+    : await getContext({
+        chainConfigPath,
+        keyConfig: { key },
+        skipConfirmation,
+      });
 
+  const customChains = context.customChains;
   const multiProvider = context.multiProvider;
-  let signer = context.signer;
+  const signer = context.signer;
 
-  if (!chains?.length) {
+  if (dryRun) chains = context.chains;
+  else if (!chains?.length) {
     if (skipConfirmation) throw new Error('No chains provided');
-    chains = await retrieveChainSelection(context.customChains, dryRun);
-  }
-
-  if (dryRun) {
-    if (chains.length != 1)
-      throw new Error('Only one chain can be present for dry-running.');
-
-    await forkNetworkToMultiProvider(multiProvider, chains[0]);
-
-    signer = (await getSigner({
-      keyConfig: { key },
-      skipConfirmation,
-      dryRun,
-    })) as ethers.Signer;
-
-    if (signer) multiProvider.setSharedSigner(signer);
+    chains = await runMultiChainSelectionStep(
+      customChains,
+      'Select chains to connect:',
+      true,
+    );
   }
 
   const artifacts = await runArtifactStep(
@@ -157,30 +149,6 @@ export async function runCoreDeploy({
   await executeDeploy(deploymentParams);
 
   if (dryRun) await resetFork();
-}
-
-/**
- * Retrieves a user's chain selection for the current command
- * @param customChains user-specified custom chains
- * @param dryRun whether or not the command is being dry-run
- * @returns an array of the selected chains
- */
-async function retrieveChainSelection(
-  customChains: ChainMap<ChainMetadata>,
-  dryRun: boolean,
-): Promise<string[]> {
-  return dryRun
-    ? [
-        await runSingleChainSelectionStep(
-          customChains,
-          'Select chain to dry-run against:',
-        ),
-      ]
-    : await runMultiChainSelectionStep(
-        customChains,
-        'Select chains to connect:',
-        true,
-      );
 }
 
 function runArtifactStep(
