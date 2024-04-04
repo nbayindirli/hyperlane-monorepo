@@ -1,5 +1,13 @@
 # @hyperlane-xyz/cli
 
+## 3.11.0
+
+### Patch Changes
+
+- Updated dependencies [aab63d46]
+  - @hyperlane-xyz/sdk@3.11.0
+  - @hyperlane-xyz/utils@3.11.0
+
 ## 3.10.0
 
 ### Minor Changes
