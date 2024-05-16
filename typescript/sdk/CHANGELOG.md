@@ -1,5 +1,16 @@
 # @hyperlane-xyz/sdk
 
+## 3.11.0
+
+### Minor Changes
+
+- aab63d46: Adding ICA for governance
+
+### Patch Changes
+
+- @hyperlane-xyz/core@3.11.0
+- @hyperlane-xyz/utils@3.11.0
+
 ## 3.10.0
 
 ### Minor Changes
